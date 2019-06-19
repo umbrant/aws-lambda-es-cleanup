@@ -51,12 +51,14 @@ class ES_Cleanup(object):
 
         self.cfg = {}
         self.cfg["es_endpoint"] = self.get_parameter("es_endpoint")
-        self.cfg["index"] = self.get_parameter("index", "all").split(",")
+        self.cfg["index_regex"] = self.get_parameter("index", ".*").split(",")
 
         self.cfg["delete_after"] = int(self.get_parameter("delete_after", 15))
         self.cfg["es_max_retry"] = int(self.get_parameter("es_max_retry", 3))
-        self.cfg["index_format"] = self.get_parameter(
-            "index_format", "%Y.%m.%d")
+        self.cfg["date_format"] = self.get_parameter(
+            "date_format", "%Y.%m.%d")
+        self.cfg["date_regex"] = self.get_parameter(
+            "date_regex", "\d{4}\.\d{2}\.\d{2}")
         self.cfg["sns_alert"] = self.get_parameter("sns_alert", "")
 
         if not self.cfg["es_endpoint"]:
@@ -165,26 +167,28 @@ def lambda_handler(event, context):
     # Index cutoff definition, remove older than this date
     earliest_to_keep = datetime.date.today() - datetime.timedelta(
         days=int(es.cfg["delete_after"]))
+
     for index in es.get_indices():
         print("Found index: {}".format(index["index"]))
         if index["index"] == ".kibana":
             # ignore .kibana index
             continue
 
-        idx_split = index["index"].rsplit("-",
-            1 + es.cfg["index_format"].count("-"))
-        idx_name = idx_split[0]
-        idx_date = '-'.join(word for word in idx_split[1:])
+        if not re.match(re.escape(es.cfg['index_regex']), index["index"]):
+            print("Index {} did not match regex {}".format(index["index"], es.cfg['index_regex']))
+            continue
 
-        if idx_name in es.cfg["index"] or "all" in es.cfg["index"]:
+        date_match = re.search(re.escape(es.cfg['date_regex']), index)
+        if not date_match:
+            print("Index {} did not match date regex {}".format(index, es.cfg['date_regex']))
+            continue
+        idx_date = datetime.datetime.strptime(date_match.group(), es.cfg['date_format'])
 
-            if idx_date <= earliest_to_keep.strftime(es.cfg["index_format"]):
-                print("Deleting index: {}".format(index["index"]))
-                es.delete_index(index["index"])
-            else:
-                print("Keeping index: {}".format(index["index"]))
+        if idx_date <= earliest_to_keep:
+            print("Deleting index: {}".format(index["index"]))
+            es.delete_index(index["index"])
         else:
-            print("Index {} name {} did not match pattern {}".format(index["index"], idx_name, es.cfg["index"]))
+            print("Keeping index: {}".format(index["index"]))
 
 
 if __name__ == '__main__':

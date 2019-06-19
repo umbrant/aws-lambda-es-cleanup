@@ -17,9 +17,14 @@ variable "sns_alert" {
 
 variable "es_endpoint" {}
 
-variable "index" {
-  description = "Index/indices to process comma separated, with all every index will be processed except '.kibana'"
-  default     = "all"
+variable "index_regex" {
+  description = "Regex matching indexes to process. This is run with Python's re.match function. By default, ever index is processed (except '.kibana')."
+  default     = ".*"
+}
+
+variable "date_regex" {
+  description = "Regex used to parse the timetamp from the index name. This is run with Python's re.search function, returning the first group."
+  default     = "\d{4}\.\d{2}\.\d{2}"
 }
 
 variable "delete_after" {
