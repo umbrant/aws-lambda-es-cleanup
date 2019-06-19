@@ -24,7 +24,7 @@ variable "index_regex" {
 
 variable "date_regex" {
   description = "Regex used to parse the timetamp from the index name. This is run with Python's re.search function, returning the first group."
-  default     = "\d{4}\.\d{2}\.\d{2}"
+  default     = ""
 }
 
 variable "delete_after" {
